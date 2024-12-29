@@ -198,7 +198,7 @@ class KalshiWebSocketClient(KalshiBaseClient):
             on_error=self.on_error,
             on_close=self.on_close
         )
-        self.ws.run_forever()
+        self.ws.run_forever(suppress_origin=True)
 
     def on_open(self, ws):
         """Callback when WebSocket connection is opened."""

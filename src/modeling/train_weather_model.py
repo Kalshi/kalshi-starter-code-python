@@ -46,8 +46,22 @@ def train_weather_model():
             logger.error("Failed to load any NOAA data files")
             return
             
+        # Combine all historical files into a single DataFrame
         weather_data = pd.concat(weather_data_list, ignore_index=True)
-        logger.info(f"Loaded {len(weather_data)} records from {len(weather_data_list)} NOAA data files")
+        logger.info(f"Loaded {len(weather_data)} records from {len(weather_data_list)} NOAA data files before cleaning")
+
+        # --- Essential cleaning for time-series integrity ---
+        if 'date' not in weather_data.columns:
+            logger.error("`date` column missing from NOAA data – cannot proceed with training")
+            return
+
+        # Ensure proper dtype, sort, and de-duplicate
+        weather_data['date'] = pd.to_datetime(weather_data['date'], errors='coerce')
+        weather_data = weather_data.dropna(subset=['date'])
+        weather_data = weather_data.sort_values('date').reset_index(drop=True)
+        weather_data = weather_data.drop_duplicates(subset=['date'], keep='last').reset_index(drop=True)
+
+        logger.info(f"After cleaning: {len(weather_data)} unique daily records spanning {weather_data['date'].min().date()} → {weather_data['date'].max().date()}")
         
         if weather_data is None or weather_data.empty:
             logger.error("Failed to download Philadelphia weather data")
@@ -65,9 +79,9 @@ def train_weather_model():
             
         logger.info(f"Generated {len(features)} records with {len(features.columns)-1} features (excluding date)")
         
-        # Train model for high temperature prediction
-        logger.info("Training model for high temperature prediction...")
-        target_column = "target_high_temp_yes"
+        # Train model for maximum temperature prediction (regression)
+        logger.info("Training model for maximum temperature prediction (regression)...")
+        target_column = "target_max_temp"
         
         if target_column not in features.columns:
             logger.error(f"Target column '{target_column}' not found in features")

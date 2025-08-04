@@ -27,8 +27,8 @@ class WeatherModelTrainer:
             model_params: Dictionary of XGBoost parameters
         """
         self.model_params = model_params or {
-            'objective': 'binary:logistic',
-            'eval_metric': 'logloss',
+            'objective': 'reg:squarederror',
+            'eval_metric': 'rmse',
             'max_depth': 6,
             'learning_rate': 0.1,
             'n_estimators': 100,
@@ -57,10 +57,19 @@ class WeatherModelTrainer:
         # Remove rows with missing target values
         df = features_df.dropna(subset=[target_column])
         
-        # Separate features and target
-        feature_columns = [col for col in df.columns if col != target_column and col != 'date']
-        X = df[feature_columns]
+        # Explicitly remove columns that introduce data leakage (values only known after prediction time)
+        leaky_columns = [
+            'max_temp', 'min_temp', 'max_temp_f', 'min_temp_f',
+            'max_temp_above_avg', 'min_temp_above_avg', 'temp_range', 'temp_mean',
+            'above_80F', 'above_90F', 'above_95F', 'above_98F', 'below_32F', 'below_20F',
+            'had_precipitation', 'heavy_precipitation', 'precipitation', 'precipitation_inches',
+            'is_rainy_day', 'is_dry_day', 'date', target_column
+        ]
+        X = df.drop(columns=[c for c in leaky_columns if c in df.columns], errors='ignore')
         y = df[target_column]
+        
+        # Store feature list for metrics/importance tracking
+        feature_columns = X.columns.tolist()
         
         # Handle missing values in features
         X = X.fillna(0)  # Simple imputation
@@ -69,43 +78,40 @@ class WeatherModelTrainer:
         X = X.apply(pd.to_numeric, errors='coerce').fillna(0)
         y = pd.to_numeric(y, errors='coerce').fillna(0)
         
-        # Ensure target is binary for classification
-        y = (y > 0.5).astype(int)
         
-        # Split data
+        
+        # Split data (no stratification for regression)
         X_train, X_test, y_train, y_test = train_test_split(
-            X, y, test_size=0.2, random_state=42, stratify=y
+            X, y, test_size=0.2, random_state=42
         )
         
         # Train XGBoost model
-        model = xgb.XGBClassifier(**self.model_params)
+        model = xgb.XGBRegressor(**self.model_params)
         model.fit(X_train, y_train)
         
         # Evaluate model
         y_pred = model.predict(X_test)
-        y_pred_proba = model.predict_proba(X_test)[:, 1]
+        from sklearn.metrics import mean_squared_error
+        import numpy as np
+        mse = mean_squared_error(y_test, y_pred)
+        rmse = np.sqrt(mse)
         
-        # Calculate metrics
-        accuracy = accuracy_score(y_test, y_pred)
-        auc = roc_auc_score(y_test, y_pred_proba)
-        logloss = log_loss(y_test, y_pred_proba)
-        
-        # Cross-validation
-        cv_scores = cross_val_score(model, X_train, y_train, cv=5, scoring='roc_auc')
+        # Cross-validation RMSE
+        cv_scores = cross_val_score(model, X_train, y_train, cv=5, scoring='neg_root_mean_squared_error')
+        cv_rmse_mean = (-cv_scores).mean()
+        cv_rmse_std = (-cv_scores).std()
         
         metrics = {
-            'accuracy': accuracy,
-            'auc': auc,
-            'logloss': logloss,
-            'cv_mean_auc': cv_scores.mean(),
-            'cv_std_auc': cv_scores.std(),
+            'rmse': rmse,
+            'cv_mean_rmse': cv_rmse_mean,
+            'cv_std_rmse': cv_rmse_std,
             'n_samples': len(X),
             'n_features': len(feature_columns)
         }
         
         logger.info(f"Model trained with {len(X)} samples and {len(feature_columns)} features")
-        logger.info(f"Test Accuracy: {accuracy:.4f}, AUC: {auc:.4f}, Log Loss: {logloss:.4f}")
-        logger.info(f"CV AUC: {cv_scores.mean():.4f} (+/- {cv_scores.std() * 2:.4f})")
+        logger.info(f"Test RMSE: {rmse:.4f}")
+        logger.info(f"CV RMSE: {cv_rmse_mean:.4f} (+/- {cv_rmse_std * 2:.4f})")
         
         # Save feature importance
         feature_importance = pd.DataFrame({
@@ -120,11 +126,11 @@ class WeatherModelTrainer:
         # Save model and metrics
         os.makedirs('models', exist_ok=True)
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        model_filename = f"models/philly_weather_xgb_{target_column}_{timestamp}.joblib"
+        model_filename = f"models/philly_weather_xgb_regressor_{target_column}_{timestamp}.joblib"
         metrics_filename = f"models/philly_weather_metrics_{target_column}_{timestamp}.json"
         
-        joblib.dump(model, model_filename)
-        feature_importance.to_csv(f"models/philly_feature_importance_{target_column}_{timestamp}.csv", index=False)
+        joblib.dump({'model': model, 'rmse': rmse}, model_filename)
+        feature_importance.to_csv(f"models/philly_feature_importance_regressor_{target_column}_{timestamp}.csv", index=False)
         
         # Save metrics
         import json

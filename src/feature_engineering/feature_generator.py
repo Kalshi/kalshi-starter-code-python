@@ -56,7 +56,20 @@ class WeatherFeatureGenerator:
         df.to_csv(filename, index=False)
         logger.info(f"Saved features to {filename}")
         
-        logger.info(f"Generated {len(df.columns)} features for {len(df)} records")
+        # Remove any columns that would cause data leakage (values only known after prediction time)
+        leaky_cols = [
+            'max_temp', 'min_temp', 'max_temp_f', 'min_temp_f',
+            'max_temp_above_avg', 'min_temp_above_avg', 'temp_range', 'temp_mean',
+            'above_80F', 'above_90F', 'above_95F', 'above_98F',
+            'below_32F', 'below_20F', 'had_precipitation', 'heavy_precipitation',
+            'precipitation', 'precipitation_inches', 'is_rainy_day', 'is_dry_day'
+        ]
+        df = df.drop(columns=[c for c in leaky_cols if c in df.columns], errors='ignore')
+
+        # Replace any remaining NaNs with 0 to ensure model robustness
+        df = df.fillna(0)
+        
+        logger.info(f"Generated {len(df.columns)} features for {len(df)} records (NaNs filled)")
         return df
     
     def _generate_baseline_features(self, df: pd.DataFrame) -> pd.DataFrame:
@@ -196,33 +209,20 @@ class WeatherFeatureGenerator:
     
     def _generate_targets(self, weather_df: pd.DataFrame, market_data: Optional[pd.DataFrame] = None) -> pd.DataFrame:
         """
-        Generate target variables by matching weather data with market outcomes.
-        
-        Args:
-            weather_df: DataFrame with weather data and features
-            market_data: Optional DataFrame with Kalshi market data
-            
-        Returns:
-            DataFrame with target variables added
+        Create regression target for maximum temperature.
+        This replaces previous categorical targets. The new column `target_max_temp`
+        is simply a copy of the observed `max_temp`, allowing the model to learn
+        to predict the actual high temperature.
         """
-        logger.info("Generating target variables...")
-        
-        # Always create target columns, even if market data is not available
-        # In a real implementation, you would:
-        # 1. Parse market titles to extract temperature thresholds
-        # 2. Match market dates with weather dates
-        # 3. Determine if the market resolved YES or NO based on actual weather
-        
-        if market_data is not None and not market_data.empty:
-            logger.info("Generating targets from actual market data...")
-            # For now, we'll just add placeholder targets
-            # In a real implementation, you would extract actual market outcomes
-            weather_df['target_high_temp_yes'] = np.random.choice([0, 1], size=len(weather_df))
-            weather_df['target_low_temp_yes'] = np.random.choice([0, 1], size=len(weather_df))
-        else:
-            logger.info("Generating placeholder targets for backtesting...")
-            # Create placeholder targets for backtesting
-            weather_df['target_high_temp_yes'] = np.random.choice([0, 1], size=len(weather_df))
-            weather_df['target_low_temp_yes'] = np.random.choice([0, 1], size=len(weather_df))
-        
+        logger.info("Generating regression target `target_max_temp` ...")
+
+        if 'max_temp' not in weather_df.columns:
+            raise KeyError("`max_temp` column not found in weather DataFrame; cannot create regression target.")
+
+        # Copy the value directly
+        weather_df['target_max_temp'] = weather_df['max_temp']
+
+        # Drop rows with missing target
+        weather_df = weather_df.dropna(subset=['target_max_temp']).reset_index(drop=True)
+
         return weather_df

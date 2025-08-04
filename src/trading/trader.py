@@ -95,7 +95,10 @@ def run_trading_loop(client=None):
                 
                 if os.path.exists(model_path):
                     predictor.load_model(model_path)
-                    prediction_prob = predictor.predict(features)
+                    # Use predict_proba to obtain probability of YES (class 1)
+                    proba_arr = predictor.predict_proba(features)
+                    # XGBoost returns array of shape (n_samples, 2). Take probability of class 1.
+                    prediction_prob = float(proba_arr[0][1])
                 else:
                     logger.warning(f"Model file {model_path} not found. Using placeholder prediction.")
                     # Use a placeholder prediction if no model is available
@@ -106,22 +109,34 @@ def run_trading_loop(client=None):
                 
                 # 7. Check market prices
                 try:
-                    market_data = client.get(f'/v2/markets/{ticker}')
-                    yes_price = market_data['market']['yes_bid']
-                    no_price = market_data['market']['no_bid']
+                    # Attempt to retrieve market order book. Handle 404 by falling back or defaulting prices.
+                    try:
+                        market_data = client.get(f'/trade-api/v2/markets/{ticker}')
+                    except Exception as e:
+                        logger.warning(f"[TRADE] Primary market endpoint failed for {ticker}: {e}. Trying /book endpoint …")
+                        try:
+                            market_data = client.get(f'/trade-api/v2/markets/{ticker}/book')
+                        except Exception as e2:
+                            logger.error(f"[TRADE] All endpoints failed for {ticker}: {e2}. Using default 50/50 prices.")
+                            market_data = {}
+                    yes_bid = market_data.get('market', {}).get('yes_bid', 50)
+                    yes_ask = market_data.get('market', {}).get('yes_ask', 50)
+                    no_bid = market_data.get('market', {}).get('no_bid', 50)
+                    no_ask = market_data.get('market', {}).get('no_ask', 50)
                     
-                    logger.info(f"Market {ticker} - YES bid: {yes_price} cents, NO bid: {no_price} cents")
+                    logger.info(
+                        f"Market {ticker} - YES bid/ask: {yes_bid}/{yes_ask} cents, NO bid/ask: {no_bid}/{no_ask} cents")
                     logger.info(f"Fair value: {fair_value:.2f} cents")
                     
-                    # 8. Calculate edges
-                    yes_edge = fair_value - yes_price
-                    no_edge = (100 - fair_value) - no_price
+                    # 8. Calculate edges based on ASK prices (cost to enter position)
+                    yes_edge = fair_value - yes_ask  # Buying YES costs the ask price
+                    no_edge = (100 - fair_value) - no_ask  # Buying NO costs its ask price
                     
                     logger.info(f"YES edge: {yes_edge:.2f} cents, NO edge: {no_edge:.2f} cents")
                     
                     # 9. Check for trading opportunities
                     # Apply certainty rule: only trade if prediction is confident enough
-                    certainty_threshold = 0.7  # Only trade if prediction > 70% or < 30%
+                    certainty_threshold = 0.6  # Trade if prediction > 60% or < 40%
                     
                     if yes_edge >= MINIMUM_EDGE_CENTS and prediction_prob >= certainty_threshold:
                         # Place YES trade
@@ -129,14 +144,14 @@ def run_trading_loop(client=None):
                         if position_size > 0:
                             logger.info(f"Placing YES trade on {ticker} with {position_size} contracts at {yes_price} cents")
                             # In a real implementation, you would place the trade here
-                            # trade_executor.place_trade(ticker, 'yes', position_size, yes_price)
+                            trade_executor.place_trade(ticker, 'yes', position_size, yes_price)
                     elif no_edge >= MINIMUM_EDGE_CENTS and prediction_prob <= (1 - certainty_threshold):
                         # Place NO trade
                         position_size = trade_executor.calculate_position_size(no_edge, 1 - prediction_prob)
                         if position_size > 0:
                             logger.info(f"Placing NO trade on {ticker} with {position_size} contracts at {no_price} cents")
                             # In a real implementation, you would place the trade here
-                            # trade_executor.place_trade(ticker, 'no', position_size, no_price)
+                            trade_executor.place_trade(ticker, 'no', position_size, no_price)
                     else:
                         if prediction_prob >= certainty_threshold or prediction_prob <= (1 - certainty_threshold):
                             logger.info(f"No trading opportunity for {ticker} (insufficient edge despite high certainty)")

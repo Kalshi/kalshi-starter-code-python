@@ -27,56 +27,58 @@ class KalshiWeatherScanner:
     def scan_weather_markets(self) -> List[Dict[str, Any]]:
         """
         Scan for all active weather markets on Kalshi, filtering for Philadelphia only.
-        
+
         Returns:
             List of Philadelphia weather market data dictionaries
         """
-        logger.info("Scanning for active Philadelphia weather markets...")
+        logger.info("[SCAN] Starting scan for active Philadelphia weather markets...")
         
-        # Get all markets (implementing pagination)
-        all_markets = []
-        limit = 100
-        cursor = None
-        
-        while True:
-            params = {"status": "open", "limit": limit}
-            if cursor:
-                params["cursor"] = cursor
-                
-            try:
-                markets_response = self.client.get("/trade-api/v2/markets", params=params)
-            except Exception as e:
-                logger.error(f"Error fetching markets: {e}")
-                break
-            
-            markets = markets_response.get('markets', [])
-            all_markets.extend(markets)
-            
-            # Check if there are more markets
-            cursor = markets_response.get('cursor')
-            if not cursor or len(markets) < limit:
-                break
-        
+        # --- API Call ---
+        try:
+            logger.info("[SCAN] Sending request to Kalshi API for open markets (limit=100)...")
+            params = {"status": "open", "limit": 100}
+            markets_response = self.client.get("/trade-api/v2/markets", params=params)
+            logger.info("[SCAN] API call successful.")
+        except Exception as e:
+            logger.error(f"[SCAN] Error fetching markets: {e}")
+            return []
+
+        # --- Parse and Filter ---
+        all_markets = markets_response.get('markets', [])
+        logger.info(f"[SCAN] Total markets returned from API: {len(all_markets)}")
+
         philly_weather_markets = []
-        
-        # Filter for Philadelphia weather markets
         for market in all_markets:
+            ticker = market.get('ticker', '')
+            title = market.get('title', '')
+            logger.debug(f"[SCAN] Checking market: {ticker} | {title}")
             if self._is_philly_weather_market(market):
+                logger.info(f"[SCAN] Market PASSED Philly filter: {ticker}")
                 parsed_market = self._parse_weather_market(market)
                 if parsed_market:
+                    logger.info(f"[SCAN] Market parsed successfully: {ticker}")
                     philly_weather_markets.append(parsed_market)
-        
-        logger.info(f"Found {len(philly_weather_markets)} active Philadelphia weather markets")
-        
-        # Save to CSV for later analysis
+                else:
+                    logger.warning(f"[SCAN] Market failed parsing: {ticker}")
+            else:
+                logger.debug(f"[SCAN] Market did NOT match Philly filter: {ticker}")
+
+        logger.info(f"[SCAN] Found {len(philly_weather_markets)} active Philadelphia weather markets")
+
+        # --- Save Results ---
         if philly_weather_markets:
-            os.makedirs('data', exist_ok=True)
-            df = pd.DataFrame(philly_weather_markets)
-            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-            filename = f"data/kalshi_philly_markets_{timestamp}.csv"
-            df.to_csv(filename, index=False)
-            logger.info(f"Saved Philadelphia market data to {filename}")
-        
+            try:
+                os.makedirs('data', exist_ok=True)
+                df = pd.DataFrame(philly_weather_markets)
+                timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+                filename = f"data/kalshi_philly_markets_{timestamp}.csv"
+                df.to_csv(filename, index=False)
+                logger.info(f"[SCAN] Saved Philadelphia market data to {filename}")
+            except Exception as e:
+                logger.error(f"[SCAN] Error saving Philly market data to CSV: {e}")
+        else:
+            logger.info("[SCAN] No Philadelphia weather markets found to save.")
+
         return philly_weather_markets
     
     def _is_philly_weather_market(self, market: Dict[str, Any]) -> bool:

@@ -32,7 +32,7 @@ class NOAADownloader:
     
     def download_philly_historical_data(self, start_date: str, end_date: str) -> Optional[pd.DataFrame]:
         """
-        Download historical weather data for Philadelphia.
+        Download historical weather data for Philadelphia, fetching it in yearly chunks.
         
         Args:
             start_date: Start date in YYYY-MM-DD format
@@ -44,8 +44,6 @@ class NOAADownloader:
         city = "Philadelphia"
         logger.info(f"Downloading historical data for Philadelphia from {start_date} to {end_date}")
         
-        # Get station ID for Philadelphia
-        city = "Philadelphia"
         if city not in TARGET_CITIES:
             logger.error(f"Philadelphia not found in TARGET_CITIES configuration")
             return None
@@ -53,20 +51,33 @@ class NOAADownloader:
         station_id = TARGET_CITIES[city]['station_id']
         logger.info(f"Using station ID: {station_id}")
         
-        # Download data with pagination
+        # Fetch data in yearly chunks to avoid API limits
         all_data = []
-        offset = 0
-        limit = 1000
+        start = datetime.strptime(start_date, '%Y-%m-%d')
+        end = datetime.strptime(end_date, '%Y-%m-%d')
+        current_start = start
         
-        while True:
-            data_chunk = self._fetch_noaa_data(station_id, start_date, end_date, offset, limit)
-            if data_chunk is not None and len(data_chunk) > 0:
-                all_data.extend(data_chunk)
-                if len(data_chunk) < limit:
-                    break  # No more data
-                offset += limit
-            else:
-                break
+        while current_start <= end:
+            current_end = current_start.replace(year=current_start.year + 1) - timedelta(days=1)
+            if current_end > end:
+                current_end = end
+            
+            logger.info(f"Fetching data for range: {current_start.strftime('%Y-%m-%d')} to {current_end.strftime('%Y-%m-%d')}")
+            
+            offset = 0
+            limit = 1000
+            while True:
+                data_chunk = self._fetch_noaa_data(station_id, current_start.strftime('%Y-%m-%d'), current_end.strftime('%Y-%m-%d'), offset, limit)
+                if data_chunk is not None and len(data_chunk) > 0:
+                    all_data.extend(data_chunk)
+                    if len(data_chunk) < limit:
+                        break
+                    offset += limit
+                else:
+                    break
+            
+            current_start = current_start.replace(year=current_start.year + 1)
+
         
         if all_data:
             df = self._process_noaa_data(all_data)

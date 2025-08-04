@@ -94,16 +94,9 @@ class KalshiWeatherScanner:
         # Check for Philadelphia-specific markets
         title = market.get('title', '').lower()
         
-        # Check for Philadelphia mentions
-        philly_keywords = ['philadelphia', 'philly', 'phl', 'philidelphia']  # Including common misspellings
-        
-        has_philly_keywords = any(keyword in title for keyword in philly_keywords)
-        
-        # Also check for weather-related keywords
-        weather_keywords = ['weather', 'temperature', 'temp', 'high', 'low', 'precipitation', 'rain']
-        has_weather_keywords = any(keyword in title for keyword in weather_keywords)
-        
-        return has_philly_keywords and has_weather_keywords
+        # Per user guidance, the most reliable way to identify these markets is by the ticker series.
+        ticker = market.get('ticker', '').upper()
+        return 'KXHIGHPHIL' in ticker
     
     def _parse_weather_market(self, market: Dict[str, Any]) -> Dict[str, Any]:
         """

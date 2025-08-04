@@ -45,6 +45,9 @@ class WeatherFeatureGenerator:
         
         # Generate advanced features
         df = self._generate_advanced_features(df)
+
+        # Generate features from professional forecasts
+        df = self._generate_forecast_features(df)
         
         # Always generate target variables
         df = self._generate_targets(df, market_data)
@@ -207,6 +210,136 @@ class WeatherFeatureGenerator:
         
         return df
     
+    def _generate_forecast_features(self, df: pd.DataFrame) -> pd.DataFrame:
+        """
+        Generate features based on external professional forecast data.
+        This is where the 'alpha' is generated.
+        """
+        logger.info("Generating high-impact features from professional forecast data...")
+
+        # 1. Temperature Range Features
+        if 'gfs_temp_max_c' in df.columns and 'gfs_temp_min_c' in df.columns:
+            df['gfs_temp_range_c'] = df['gfs_temp_max_c'] - df['gfs_temp_min_c']
+            df['gfs_temp_range_f'] = df['gfs_temp_range_c'] * 9/5  # Convert to Fahrenheit
+            
+        if 'ecmwf_temp_max_c' in df.columns and 'ecmwf_temp_min_c' in df.columns:
+            df['ecmwf_temp_range_c'] = df['ecmwf_temp_max_c'] - df['ecmwf_temp_min_c']
+            df['ecmwf_temp_range_f'] = df['ecmwf_temp_range_c'] * 9/5  # Convert to Fahrenheit
+
+        # 2. Apparent Temperature Features (Humidity Indicator)
+        if 'gfs_temp_max_c' in df.columns and 'gfs_apparent_temp_max_c' in df.columns:
+            df['gfs_apparent_temp_diff_c'] = df['gfs_apparent_temp_max_c'] - df['gfs_temp_max_c']
+            df['gfs_apparent_temp_diff_f'] = df['gfs_apparent_temp_diff_c'] * 9/5  # Convert to Fahrenheit
+            
+        if 'ecmwf_temp_max_c' in df.columns and 'ecmwf_apparent_temp_max_c' in df.columns:
+            df['ecmwf_apparent_temp_diff_c'] = df['ecmwf_apparent_temp_max_c'] - df['ecmwf_temp_max_c']
+            df['ecmwf_apparent_temp_diff_f'] = df['ecmwf_apparent_temp_diff_c'] * 9/5  # Convert to Fahrenheit
+
+        # 3. Forecasted High Temperatures in Fahrenheit
+        if 'gfs_temp_max_c' in df.columns:
+            df['gfs_temp_max_f'] = (df['gfs_temp_max_c'] * 9/5) + 32
+            
+        if 'ecmwf_temp_max_c' in df.columns:
+            df['ecmwf_temp_max_f'] = (df['ecmwf_temp_max_c'] * 9/5) + 32
+
+        # 4. Forecast Errors and Advanced Error Metrics
+        if 'max_temp' in df.columns and 'gfs_temp_max_c' in df.columns:
+            # GFS Forecast Error (Actual - Forecast)
+            df['gfs_forecast_error'] = df['max_temp'] - df['gfs_temp_max_c']
+            df['gfs_forecast_error_abs'] = df['gfs_forecast_error'].abs()
+            
+            # Lagged GFS Forecast Errors
+            df['gfs_forecast_error_lag_1'] = df['gfs_forecast_error'].shift(1)
+            df['gfs_forecast_error_lag_2'] = df['gfs_forecast_error'].shift(2)
+            df['gfs_forecast_error_lag_3'] = df['gfs_forecast_error'].shift(3)
+            
+            # Rolling Mean and Std of GFS Forecast Errors
+            df['gfs_forecast_error_mean_3'] = df['gfs_forecast_error'].shift(1).rolling(window=3, min_periods=1).mean()
+            df['gfs_forecast_error_mean_7'] = df['gfs_forecast_error'].shift(1).rolling(window=7, min_periods=1).mean()
+            df['gfs_forecast_error_std_7'] = df['gfs_forecast_error'].shift(1).rolling(window=7, min_periods=1).std()
+            
+            # Exponential Moving Average of GFS Forecast Errors
+            df['gfs_forecast_error_ema_7'] = df['gfs_forecast_error'].shift(1).ewm(span=7, min_periods=1).mean()
+            
+        if 'max_temp' in df.columns and 'ecmwf_temp_max_c' in df.columns:
+            # ECMWF Forecast Error (Actual - Forecast)
+            df['ecmwf_forecast_error'] = df['max_temp'] - df['ecmwf_temp_max_c']
+            df['ecmwf_forecast_error_abs'] = df['ecmwf_forecast_error'].abs()
+            
+            # Lagged ECMWF Forecast Errors
+            df['ecmwf_forecast_error_lag_1'] = df['ecmwf_forecast_error'].shift(1)
+            df['ecmwf_forecast_error_lag_2'] = df['ecmwf_forecast_error'].shift(2)
+            df['ecmwf_forecast_error_lag_3'] = df['ecmwf_forecast_error'].shift(3)
+            
+            # Rolling Mean and Std of ECMWF Forecast Errors
+            df['ecmwf_forecast_error_mean_3'] = df['ecmwf_forecast_error'].shift(1).rolling(window=3, min_periods=1).mean()
+            df['ecmwf_forecast_error_mean_7'] = df['ecmwf_forecast_error'].shift(1).rolling(window=7, min_periods=1).mean()
+            df['ecmwf_forecast_error_std_7'] = df['ecmwf_forecast_error'].shift(1).rolling(window=7, min_periods=1).std()
+            
+            # Exponential Moving Average of ECMWF Forecast Errors
+            df['ecmwf_forecast_error_ema_7'] = df['ecmwf_forecast_error'].shift(1).ewm(span=7, min_periods=1).mean()
+
+        # 5. Forecast Convergence/Divergence Features
+        if 'gfs_temp_max_c' in df.columns and 'ecmwf_temp_max_c' in df.columns:
+            # Difference between the two professional models
+            df['gfs_ecmwf_diff'] = df['gfs_temp_max_c'] - df['ecmwf_temp_max_c']
+            df['gfs_ecmwf_diff_abs'] = df['gfs_ecmwf_diff'].abs()
+            
+            # Lagged differences
+            df['gfs_ecmwf_diff_lag_1'] = df['gfs_ecmwf_diff'].shift(1)
+            
+            # Rolling mean of the difference
+            df['gfs_ecmwf_diff_mean_7'] = df['gfs_ecmwf_diff'].shift(1).rolling(window=7, min_periods=1).mean()
+            
+        # 6. Forecast Uncertainty Features
+        if 'gfs_forecast_error_std_7' in df.columns and 'ecmwf_forecast_error_std_7' in df.columns:
+            # Average forecast uncertainty
+            df['avg_forecast_uncertainty'] = (df['gfs_forecast_error_std_7'] + df['ecmwf_forecast_error_std_7']) / 2
+            
+        # 7. Forecast Momentum Features
+        if 'gfs_temp_max_c' in df.columns:
+            # GFS Forecast Changes
+            df['gfs_forecast_diff_1'] = df['gfs_temp_max_c'].diff(1)
+            df['gfs_forecast_diff_2'] = df['gfs_temp_max_c'].diff(2)
+            df['gfs_forecast_diff_3'] = df['gfs_temp_max_c'].diff(3)
+            
+            # GFS Forecast Trends
+            df['gfs_forecast_trend_3'] = df['gfs_temp_max_c'].rolling(window=3, min_periods=3).apply(
+                lambda x: np.polyfit(range(len(x)), x, 1)[0] if len(x) == 3 else np.nan, raw=False)
+            df['gfs_forecast_trend_7'] = df['gfs_temp_max_c'].rolling(window=7, min_periods=7).apply(
+                lambda x: np.polyfit(range(len(x)), x, 1)[0] if len(x) == 7 else np.nan, raw=False)
+            
+        if 'ecmwf_temp_max_c' in df.columns:
+            # ECMWF Forecast Changes
+            df['ecmwf_forecast_diff_1'] = df['ecmwf_temp_max_c'].diff(1)
+            df['ecmwf_forecast_diff_2'] = df['ecmwf_temp_max_c'].diff(2)
+            df['ecmwf_forecast_diff_3'] = df['ecmwf_temp_max_c'].diff(3)
+            
+            # ECMWF Forecast Trends
+            df['ecmwf_forecast_trend_3'] = df['ecmwf_temp_max_c'].rolling(window=3, min_periods=3).apply(
+                lambda x: np.polyfit(range(len(x)), x, 1)[0] if len(x) == 3 else np.nan, raw=False)
+            df['ecmwf_forecast_trend_7'] = df['ecmwf_temp_max_c'].rolling(window=7, min_periods=7).apply(
+                lambda x: np.polyfit(range(len(x)), x, 1)[0] if len(x) == 7 else np.nan, raw=False)
+
+        # 8. Consensus Features (Average of GFS and ECMWF)
+        if 'gfs_temp_max_c' in df.columns and 'ecmwf_temp_max_c' in df.columns:
+            df['consensus_forecast_c'] = (df['gfs_temp_max_c'] + df['ecmwf_temp_max_c']) / 2
+            df['consensus_forecast_f'] = (df['consensus_forecast_c'] * 9/5) + 32
+            
+        # 9. Additional GFS Features (Precipitation, Radiation, Wind)
+        if 'gfs_precipitation_sum_mm' in df.columns:
+            df['gfs_precipitation_sum_mm'] = df['gfs_precipitation_sum_mm'].fillna(0)  # Fill NaNs with 0
+            df['gfs_had_precipitation'] = (df['gfs_precipitation_sum_mm'] > 0).astype(int)
+            df['gfs_heavy_precipitation'] = (df['gfs_precipitation_sum_mm'] > 10.0).astype(int)  # More than 10mm
+            
+        if 'gfs_shortwave_radiation_sum' in df.columns:
+            df['gfs_shortwave_radiation_sum'] = df['gfs_shortwave_radiation_sum'].fillna(0)  # Fill NaNs with 0
+            
+        if 'gfs_windspeed_max_kmh' in df.columns:
+            df['gfs_windspeed_max_kmh'] = df['gfs_windspeed_max_kmh'].fillna(0)  # Fill NaNs with 0
+            
+        return df
+
     def _generate_targets(self, weather_df: pd.DataFrame, market_data: Optional[pd.DataFrame] = None) -> pd.DataFrame:
         """
         Create regression target for maximum temperature.

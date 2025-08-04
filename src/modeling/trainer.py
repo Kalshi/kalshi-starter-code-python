@@ -63,7 +63,9 @@ class WeatherModelTrainer:
             'max_temp_above_avg', 'min_temp_above_avg', 'temp_range', 'temp_mean',
             'above_80F', 'above_90F', 'above_95F', 'above_98F', 'below_32F', 'below_20F',
             'had_precipitation', 'heavy_precipitation', 'precipitation', 'precipitation_inches',
-            'is_rainy_day', 'is_dry_day', 'date', target_column
+            'is_rainy_day', 'is_dry_day', 'date', target_column,
+            # Also remove the raw forecast error, as it's calculated from the target
+            'forecast_error'
         ]
         X = df.drop(columns=[c for c in leaky_columns if c in df.columns], errors='ignore')
         y = df[target_column]

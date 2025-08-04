@@ -53,12 +53,38 @@ def load_kalshi_client(environment):
 
 
 def train_model():
-    """Train the weather prediction model."""
-    logger.info("Starting model training...")
-    # Import and run trainer
-    from src.modeling import train_weather_model
-    train_weather_model()
-    logger.info("Model training completed.")
+    """Train the weather prediction model using the master training set."""
+    logger.info("Starting model training with Alpha Hunter features...")
+    
+    # Import required modules
+    from src.modeling.trainer import WeatherModelTrainer
+    from src.feature_engineering.feature_generator import WeatherFeatureGenerator
+    import pandas as pd
+    import os
+
+    # Define the path to the master training set
+    master_set_path = 'data/master_training_set.csv'
+
+    if not os.path.exists(master_set_path):
+        logger.error(f"Master training set not found at {master_set_path}.")
+        logger.error("Please run the `build_master_training_set.py` script first.")
+        return
+
+    # 1. Load the master training set
+    logger.info(f"Loading master training set from {master_set_path}...")
+    master_df = pd.read_csv(master_set_path)
+    logger.info(f"Loaded {len(master_df)} records.")
+
+    # 2. Generate features (this will add lagged features, etc., to the master set)
+    feature_generator = WeatherFeatureGenerator()
+    features_df = feature_generator.generate_philly_features(master_df)
+
+    # 3. Train the model
+    trainer = WeatherModelTrainer()
+    target_column = 'target_max_temp'  # As defined in the regression setup
+    trainer.train_model(features_df, target_column)
+    
+    logger.info("Model training with Alpha Hunter features completed.")
 
 
 def run_backtest(client=None):
@@ -77,27 +103,16 @@ def run_backtest(client=None):
         # 1. Load historical data from existing files
         logger.info("Loading historical Philadelphia weather data from existing files...")
         
-        # Find the largest features file (most data)
-        import glob
-        import os
-        
-        data_dir = "data"
-        feature_files = glob.glob(os.path.join(data_dir, "philly_features_*.csv"))
-        
-        if not feature_files:
-            logger.error("No feature files found. Please run backtesting with data download first.")
+        # Load the master training set, which contains all necessary historical data
+        master_set_path = 'data/master_training_set.csv'
+        if not os.path.exists(master_set_path):
+            logger.error(f"Master training set not found at {master_set_path}.")
+            logger.error("Please run the `build_master_training_set.py` script first.")
             return
-        
-        # Get the largest file by size
-        largest_feature_file = max(feature_files, key=os.path.getsize)
-        logger.info(f"Loading features from {largest_feature_file}")
-        
-        features_df = pd.read_csv(largest_feature_file)
-        logger.info(f"Loaded {len(features_df)} records from {largest_feature_file}")
-        
-        # Extract weather data from features (assuming first few columns are weather data)
-        weather_columns = ['date', 'max_temp', 'min_temp', 'precipitation']
-        weather_df = features_df[weather_columns].copy() if all(col in features_df.columns for col in weather_columns) else features_df.copy()
+
+        logger.info(f"Loading master training set from {master_set_path} for backtesting...")
+        weather_df = pd.read_csv(master_set_path)
+        logger.info(f"Loaded {len(weather_df)} records.")
         
         logger.info(f"Extracted weather data with {len(weather_df)} records")
         
@@ -106,16 +121,17 @@ def run_backtest(client=None):
         features_df = feature_generator.generate_philly_features(weather_df)
         
         # 3. Load trained model and run walk-forward backtest
-        # Look for the latest XGBoost model
+        # Look for the latest XGBoost regression model
         import glob
-        model_files = glob.glob("models/philly_weather_xgb_target_high_temp_yes_*.joblib")
+        model_files = glob.glob("models/philly_weather_xgb_regressor_target_max_temp_*.joblib")
         if model_files:
             # Use the most recent model file
             model_files.sort(reverse=True)
             model_path = model_files[0]
-            logger.info(f"Using model: {model_path}")
+            logger.info(f"Using regression model: {model_path}")
         else:
-            model_path = "models/weather_model.pkl"  # Fallback to old model
+            logger.error("No regression model files found. Please train the model first.")
+            return
         
         if not os.path.exists(model_path):
             logger.error(f"Model file not found at {model_path}. Please train the model first.")
@@ -158,10 +174,15 @@ def main():
     
     args = parser.parse_args()
     
+    client = None
     # Load client for commands that need it
-    if args.command in ['backtest', 'trade']:
-        client = load_kalshi_client(args.env)
-    
+    if args.command in ['trade', 'backtest']:
+        try:
+            client = load_kalshi_client(args.env)
+        except (ValueError, FileNotFoundError) as e:
+            logger.error(f"Could not load Kalshi client: {e}")
+            return
+
     # Execute the requested command
     if args.command == 'train':
         train_model()

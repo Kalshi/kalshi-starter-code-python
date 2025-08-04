@@ -42,8 +42,8 @@ class KalshiBaseClient:
             self.HTTP_BASE_URL = "https://demo-api.kalshi.co"
             self.WS_BASE_URL = "wss://demo-api.kalshi.co"
         elif self.environment == Environment.PROD:
-            self.HTTP_BASE_URL = "https://api.elections.kalshi.com"
-            self.WS_BASE_URL = "wss://api.elections.kalshi.com"
+            self.HTTP_BASE_URL = "https://trading-api.kalshi.com"
+            self.WS_BASE_URL = "wss://trading-api.kalshi.com"
         else:
             raise ValueError("Invalid environment")
 

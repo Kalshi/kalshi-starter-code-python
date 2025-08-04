@@ -12,17 +12,16 @@ headers = {
 }
 
 # We are querying for all 'open' markets
-url = "https://demo-api.kalshi.co/trade-api/v2/markets?status=open"
+url = "https://api.elections.kalshi.com/trade-api/v2/markets"
 
 # --- Define the tickers you want to search for ---
 series_to_find = "KXHIGHPHIL"
-event_to_find = "KXHIGHPHIL-25AUG03"
-market_to_find = "KXHIGHPHIL-25AUG03-B85.5"
+event_to_find = "KXHIGHPHIL-25AUG04"
+market_to_find = "KXHIGHPHIL-25AUG04-T86"
 
 print(f"Searching for Series: {series_to_find}")
 print(f"Searching for Event: {event_to_find}")
 print(f"Searching for Market: {market_to_find}\n")
-
 
 try:
     response = requests.get(url, headers=headers)

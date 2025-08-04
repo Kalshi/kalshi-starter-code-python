@@ -63,6 +63,45 @@ def celsius_to_fahrenheit(c: float) -> float:
     return c * 9 / 5 + 32
 
 
+def find_market_universes(markets: List[Dict]) -> Dict[str, List[Dict]]:
+    """Groups markets by their event_ticker to create arbitrage universes."""
+    universes = {}
+    for market in markets:
+        event_ticker = market.get('event_ticker')
+        if event_ticker:
+            if event_ticker not in universes:
+                universes[event_ticker] = []
+            universes[event_ticker].append(market)
+    return universes
+
+
+def check_for_arbitrage(universe: List[Dict], trade_executor: 'TradeExecutor') -> bool:
+    """
+    Checks a market universe for arbitrage opportunities and executes if found.
+    An arbitrage exists if the sum of all 'yes' asks is less than 100 cents minus a threshold.
+    """
+    ARB_PROFIT_THRESHOLD_CENTS = 2  # Minimum profit to lock in
+
+    # A true arbitrage requires all outcomes. Assuming 6 bins for Philly weather markets.
+    # This number might need to be adjusted based on typical market structures.
+    if len(universe) < 6:
+        return False
+
+    # Calculate the sum of asks. Use 101 as a default for missing asks to prevent false positives.
+    sum_of_yes_asks = sum(market.get('yes_ask', 101) for market in universe)
+
+    if sum_of_yes_asks < (100 - ARB_PROFIT_THRESHOLD_CENTS):
+        logger.info(f"ARBITRAGE OPPORTUNITY DETECTED! Sum of asks: {sum_of_yes_asks}¢. Executing...")
+        # In a true arbitrage, you would buy one contract of each outcome.
+        # Here we assume a simplified execution of buying 1 contract.
+        for market in universe:
+            # We are buying 'yes' in every market of the universe to cover all outcomes.
+            trade_executor.place_trade(market['ticker'], 'yes', 1, market['yes_ask'])
+        return True  # Signal that a trade was executed
+
+    return False
+
+
 def run_trading_loop(client=None):
     """Run the live trading loop with risk management and edge logic."""
     logger.info("Starting live trading loop")
@@ -101,6 +140,26 @@ def run_trading_loop(client=None):
                 time.sleep(60)  # Wait before next iteration
                 iteration += 1
                 continue
+
+            # --- ARBITRAGE STRATEGY (RUNS FIRST) ---
+            market_universes = find_market_universes(markets)
+            arbitrage_executed_this_iteration = False
+            for event_ticker, universe in market_universes.items():
+                logger.info(f"Checking for arbitrage in universe: {event_ticker}")
+                if check_for_arbitrage(universe, trade_executor):
+                    arbitrage_executed_this_iteration = True
+                    break  # Stop checking other universes once we've traded
+
+            # If we made an arb trade, skip the predictive model for this loop
+            if arbitrage_executed_this_iteration:
+                logger.info("Arbitrage trade executed. Waiting for next iteration.")
+                time.sleep(300)  # Wait for the next main loop
+                continue
+
+            # --- PREDICTIVE STRATEGY (RUNS IF NO ARB) ---
+            logger.info("No arbitrage opportunities found. Proceeding with predictive model.")
+            # All of your existing code for downloading data, making predictions, and finding edges goes here.
+            # ...
             
             # 2. For each market, get latest weather data and make predictions
             for market in markets:
@@ -340,6 +399,11 @@ class TradeExecutor:
         
         # Apply risk limits
         kelly_fraction = max(0, min(kelly_fraction, MAX_RISK_PER_TRADE))
+        
+        # Cap the Kelly Criterion (The Emergency Brake)
+        # Never risk more than 5% of portfolio on a single idea
+        ABSOLUTE_MAX_RISK = 0.05 # Never risk more than 5%
+        kelly_fraction = min(kelly_fraction, ABSOLUTE_MAX_RISK)
         
         # Calculate position size in dollars
         position_value = self.portfolio_balance * kelly_fraction

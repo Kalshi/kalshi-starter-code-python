@@ -8,3 +8,6 @@ Install requirements.txt in a virtual environment of your choice and execute mai
 pip install -r requirements.txt
 python main.py
 ```
+## API Rate Limits
+
+When experimenting with the Kalshi API, be mindful of rate limits to avoid temporary access restrictions.

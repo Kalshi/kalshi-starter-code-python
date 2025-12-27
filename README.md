@@ -8,3 +8,11 @@ Install requirements.txt in a virtual environment of your choice and execute mai
 pip install -r requirements.txt
 python main.py
 ```
+## Project structure
+
+This repository is organized to keep examples simple and easy to explore.
+
+- `examples/` — ready-to-run usage examples
+- `kalshi/` — core helper modules and API wrappers
+- `requirements.txt` — Python dependencies
+- `README.md` — project overview and guidance

@@ -1,3 +1,8 @@
+## Project Description
+
+This repository provides simple Python examples for interacting with the Kalshi API.
+It is intended for developers who want a minimal and clear starting point.
+
 # kalshi-starter-code-python
 Example python code for accessing api-authenticated endpoints on [Kalshi](https://kalshi.com). This is not an SDK. 
 

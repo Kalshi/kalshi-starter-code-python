@@ -8,3 +8,7 @@ Install requirements.txt in a virtual environment of your choice and execute mai
 pip install -r requirements.txt
 python main.py
 ```
+## Requirements
+
+- Python 3.9 or newer
+- Basic knowledge of Python

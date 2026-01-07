@@ -1,0 +1,18 @@
+# Project structure
+
+This doc explains the main folders and where to add new code.
+
+- `scripts/` — runnable scripts and examples
+- `docs/` — documentation and how-to guides
+- `tests/` — automated tests (unit/integration)
+
+## Adding a new script
+
+1. Create a new file under `scripts/`.
+2. Keep it small and focused.
+3. Prefer environment variables for configuration.
+4. Add a short header comment describing usage.
+
+## Adding docs
+
+Put new docs in `docs/` and keep them task-oriented.

@@ -1,0 +1,17 @@
+"""
+Basic usage example for Kalshi API client
+"""
+
+from kalshi_client import KalshiClient
+
+def main():
+    client = KalshiClient()
+
+    try:
+        markets = client.get_markets()
+        print(markets)
+    except Exception as error:
+        print("An error occurred:", error)
+
+if __name__ == "__main__":
+    main()

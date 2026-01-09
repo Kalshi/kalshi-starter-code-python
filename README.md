@@ -8,3 +8,7 @@ Install requirements.txt in a virtual environment of your choice and execute mai
 pip install -r requirements.txt
 python main.py
 ```
+## Project Purpose
+
+This repository provides example Python code for interacting with
+the Kalshi API and is intended for educational and starter use only.

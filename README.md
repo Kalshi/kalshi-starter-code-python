@@ -8,3 +8,7 @@ Install requirements.txt in a virtual environment of your choice and execute mai
 pip install -r requirements.txt
 python main.py
 ```
+## API Usage Disclaimer
+
+API endpoints, parameters, and responses may change.
+Always refer to the official Kalshi documentation for the latest updates.

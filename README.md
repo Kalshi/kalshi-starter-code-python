@@ -8,3 +8,7 @@ Install requirements.txt in a virtual environment of your choice and execute mai
 pip install -r requirements.txt
 python main.py
 ```
+## Contributions
+
+Small improvements, documentation fixes, and examples are welcome.
+Please keep changes simple and focused.

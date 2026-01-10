@@ -8,3 +8,9 @@ Install requirements.txt in a virtual environment of your choice and execute mai
 pip install -r requirements.txt
 python main.py
 ```
+## Configuration
+
+This project uses environment variables for authentication.
+
+Create a `.env` file based on `.env.example` and provide your Kalshi API credentials
+before running any scripts.

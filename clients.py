@@ -14,6 +14,9 @@ from cryptography.exceptions import InvalidSignature
 
 import websockets
 
+headers["User-Agent"] = "kalshi-python-starter-client"
+
+
 class Environment(Enum):
     DEMO = "demo"
     PROD = "prod"

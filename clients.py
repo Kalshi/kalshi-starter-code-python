@@ -11,6 +11,12 @@ from requests.exceptions import HTTPError
 from cryptography.hazmat.primitives import serialization, hashes
 from cryptography.hazmat.primitives.asymmetric import padding, rsa
 from cryptography.exceptions import InvalidSignature
+from typing import Optional, Dict, Any
+
+
+class KalshiClient:
+    def get_markets(self, params: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+        return self._get("/markets", params)
 
 import websockets
 

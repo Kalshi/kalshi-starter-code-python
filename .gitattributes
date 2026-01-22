@@ -1,0 +1,6 @@
+# Handle line endings automatically
+* text=auto
+
+# Ensure Python files use LF
+*.py text eol=lf
+*.md text eol=lf

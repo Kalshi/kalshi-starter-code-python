@@ -129,6 +129,7 @@ class KalshiHttpClient(KalshiBaseClient):
             self.host + path,
             headers=self.request_headers("GET", path),
             params=params
+            timeout=10
         )
         self.raise_if_bad_response(response)
         return response.json()

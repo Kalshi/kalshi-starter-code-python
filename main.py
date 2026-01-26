@@ -31,7 +31,7 @@ client = KalshiHttpClient(
 
 # Get account balance
 balance = client.get_balance()
-print("Balance:", balance)
+print(f"Current Balance: {balance}")
 
 # Initialize the WebSocket client
 ws_client = KalshiWebSocketClient(

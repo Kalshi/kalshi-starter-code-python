@@ -1,4 +1,7 @@
 # kalshi-starter-code-python
+
+**Prerequisites:** Python 3.7 or higher is recommended for running these examples.
+
 Example python code for accessing api-authenticated endpoints on [Kalshi](https://kalshi.com). This is not an SDK. 
 
 ## Installation 

@@ -1,3 +1,7 @@
+import logging
+
+logging.basicConfig(level=logging.INFO, format='%(levelname)s: %(message)s')
+
 import os
 from dotenv import load_dotenv
 from cryptography.hazmat.primitives import serialization
@@ -31,7 +35,7 @@ client = KalshiHttpClient(
 
 # Get account balance
 balance = client.get_balance()
-print("Balance:", balance)
+logging.info ("Balance:", balance)
 
 # Initialize the WebSocket client
 ws_client = KalshiWebSocketClient(

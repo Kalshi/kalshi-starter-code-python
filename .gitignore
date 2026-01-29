@@ -1,2 +1,12 @@
 .env
 __pycache__
+# IDE settings
+.vscode/
+.idea/
+
+# Environment secrets
+.env
+.env.local
+
+# MacOS system files
+.DS_Store

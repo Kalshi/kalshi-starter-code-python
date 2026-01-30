@@ -1,0 +1,8 @@
+* text=auto
+
+*.py text eol=lf
+*.md text eol=lf
+*.json text eol=lf
+
+.gitignore export-ignore
+.gitattributes export-ignore

@@ -1,0 +1,11 @@
+# Handle line endings automatically
+* text=auto
+
+# Ensure Python files use LF line endings
+*.py text eol=lf
+
+# Mark documentation
+*.md text
+
+# Global excludes from linguist
+.github/* linguist-documentation

@@ -8,3 +8,13 @@ Install requirements.txt in a virtual environment of your choice and execute mai
 pip install -r requirements.txt
 python main.py
 ```
+### API Environments
+
+Kalshi provides two distinct environments for trading. Ensure you are using the correct URLs for your needs:
+
+| Environment | Purpose | URL |
+|:---|:---|:---|
+| **Demo** | Testing & Development | `https://demo-api.kalshi.co/trade-api/v2` |
+| **Live** | Real Trading | `https://trading-api.kalshi.co/trade-api/v2` |
+
+> **Note:** API keys and credentials are not shared between Demo and Live environments.

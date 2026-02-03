@@ -8,3 +8,10 @@ Install requirements.txt in a virtual environment of your choice and execute mai
 pip install -r requirements.txt
 python main.py
 ```
+### Setup Recommendation
+
+It is recommended to use a virtual environment to keep dependencies isolated:
+
+```bash
+python3 -m venv venv
+source venv/bin/activate  # On Windows: venv\Scripts\activate

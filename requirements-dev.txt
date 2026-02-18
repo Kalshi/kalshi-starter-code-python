@@ -1,0 +1,5 @@
+# Development and Code Quality Tools
+black          # Code formatter
+flake8         # Linter for style guide enforcement
+mypy           # Static type checker
+pytest         # Testing framework

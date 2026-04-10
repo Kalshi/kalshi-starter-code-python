@@ -189,10 +189,13 @@ class KalshiWebSocketClient(KalshiBaseClient):
         """Establishes a WebSocket connection using authentication."""
         host = self.WS_BASE_URL + self.url_suffix
         auth_headers = self.request_headers("GET", self.url_suffix)
-        async with websockets.connect(host, additional_headers=auth_headers) as websocket:
-            self.ws = websocket
-            await self.on_open()
-            await self.handler()
+        self.ws = await websockets.connect(
+            host,
+            additional_headers=auth_headers,
+        )
+        
+        await self.on_open()
+        await self.handler()
 
     async def on_open(self):
         """Callback when WebSocket connection is opened."""

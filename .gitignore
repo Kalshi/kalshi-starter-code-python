@@ -1,2 +1,8 @@
+__pycache__/
+*.py[cod]
 .env
-__pycache__
+.env.*
+!.env.example
+# SECURITY FIX: Ensure private key artifacts are ignored from version control.
+*.pem
+*.key

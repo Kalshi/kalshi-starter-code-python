@@ -1,7 +1,23 @@
-requests==2.32.3
+# Pins raised to the minimum versions that clear every advisory reported by
+# `pip-audit -r requirements.txt`. Against the pre-change pins that run reported
+# 25 rows, which de-duplicate to 15 distinct advisories across 4 packages; after
+# this change the same command reports "No known vulnerabilities found".
+# Fix versions come from that report, not from guesswork:
+#   requests       2.32.3 -> PYSEC-2026-1872 (fix 2.32.4), PYSEC-2026-2275 (fix 2.33.0)
+#   urllib3        2.3.0  -> PYSEC-2026-141/1994/1996/1997/1998/1999 (highest fix 2.7.0)
+#   cryptography   44.0.2 -> PYSEC-2026-35/2141/3552/3553/3554, GHSA-537c-gmf6-5ccf
+#                            (highest fix 50.0.0)
+#   python-dotenv  1.0.1  -> PYSEC-2026-2270 (fix 1.2.2)
+# Re-run `pip-audit -r requirements.txt` after editing this file.
+requests==2.33.0
 python-dateutil==2.9.0.post0
-cryptography==44.0.2
-urllib3==2.3.0
-python-dotenv==1.0.1
+cryptography==50.0.0
+urllib3==2.7.0
+python-dotenv==1.2.2
 websockets==14.1
-datetime==5.5
+
+# The `datetime` PyPI distribution (previously pinned at 5.5) was removed. It is
+# a third-party package that shadows nothing in this codebase: `clients.py` and
+# `main.py` only need the standard library, and carrying it invites confusion
+# with the built-in `datetime` module while adding an unnecessary dependency and
+# its transitive `zope.interface` requirement to the supply chain.

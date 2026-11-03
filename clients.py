@@ -118,6 +118,8 @@ class KalshiHttpClient(KalshiBaseClient):
             self.host + path,
             json=body,
             headers=self.request_headers("POST", path)
+        ,
+            timeout=30
         )
         self.raise_if_bad_response(response)
         return response.json()
@@ -129,6 +131,8 @@ class KalshiHttpClient(KalshiBaseClient):
             self.host + path,
             headers=self.request_headers("GET", path),
             params=params
+        ,
+            timeout=30
         )
         self.raise_if_bad_response(response)
         return response.json()
@@ -140,6 +144,8 @@ class KalshiHttpClient(KalshiBaseClient):
             self.host + path,
             headers=self.request_headers("DELETE", path),
             params=params
+        ,
+            timeout=30
         )
         self.raise_if_bad_response(response)
         return response.json()
